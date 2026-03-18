@@ -1,0 +1,15 @@
+# Binary
+app
+
+# Object files
+*.o
+
+# Debug / dump files
+*.out
+*.stackdump
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+.DS_Store
