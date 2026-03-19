@@ -30,8 +30,8 @@ int main(){
         program = generateAST(input);
         if(program != NULL) {
             parse(program);
-            ASTFree(program);
         }
+        ASTFree(program);
         program = NULL;
         
         printf("> ");

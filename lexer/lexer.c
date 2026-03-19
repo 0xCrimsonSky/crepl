@@ -36,7 +36,7 @@ DynArray* tokenize(char* input) {
     for(int i=0; input[i] != '\0'; i++) {
         if(tokens_len == capacity) {
             capacity *= 2;
-            Token* temp = realloc(tokens, capacity * sizeof *temp);
+            Token* temp = realloc(tokens, capacity * (sizeof *temp));
             if(temp == NULL){
                 printf("Failed to allocate memory");
                 exit(1);
@@ -62,7 +62,7 @@ DynArray* tokenize(char* input) {
                 char* value = generateNumber(input, &i);
 
                 tokens[tokens_len].type = NUM;
-                tokens[tokens_len].value = malloc(strlen(value));
+                tokens[tokens_len].value = malloc(strlen(value)+1);
                 strcpy(tokens[tokens_len].value, value);
                 free(value);
 
@@ -84,8 +84,10 @@ DynArray* tokenize(char* input) {
             case '.':
                 if(input[i+1] != '\0' && isNum(input[i+1])) {
                     char* value = generateNumber(input, &i);
+                    size_t value_length = strlen(value);
+
                     tokens[tokens_len].type = NUM;
-                    tokens[tokens_len].value = malloc(strlen(value));
+                    tokens[tokens_len].value = malloc(value_length+1);
                     strcpy(tokens[tokens_len].value, value);
                     free(value);
 

@@ -36,6 +36,7 @@ Statement* generateStatement(Token* items, int index) {
                 if(str_num[i] == '.') {
                     if(is_fraction == true) {
                         printf("Incorrect number %s\n", str_num);
+                        free(stmt);
                         return NULL;
                     }
                     is_fraction = true;
@@ -66,7 +67,7 @@ Statement* generateStatement(Token* items, int index) {
             break;
         }
         case OPERATOR:
-            stmt->value = malloc(sizeof(char)+1);
+            stmt->value = malloc(sizeof(BinOps));
             stmt->type = BINARYOP;
 
             char literal = items[index].value[0];
@@ -79,8 +80,11 @@ Statement* generateStatement(Token* items, int index) {
             } else if(literal == '/') {
                 *(BinOps*)stmt->value = DIV;
             } else {
+                free(stmt->value);
+                stmt->value = malloc(sizeof(char)+1);
                 stmt->type = UNKNOWN;
-                *(char*)stmt->value = items[index].value[0];
+                ((char*)stmt->value)[0] = items[index].value[0];
+                ((char*)stmt->value)[1] = '\0';
             }
             break;
         case LITERAL: {
@@ -94,13 +98,15 @@ Statement* generateStatement(Token* items, int index) {
             } else {
                 stmt->type = UNKNOWN;
             }
-            *(char*)stmt->value = literal;
+            ((char*)stmt->value)[0] = literal;
+            ((char*)stmt->value)[1] = '\0';
             break;
         }
         default: {
             stmt->type = UNKNOWN;
             stmt->value = malloc(sizeof(char)+1);
-            *(char*)stmt->value = items[index].value[0];
+            ((char*)stmt->value)[0] = items[index].value[0];
+            ((char*)stmt->value)[1] = '\0';
         }
     }
 
@@ -119,6 +125,8 @@ Statement* generateAST(char* input){
     for(size_t i=0; i<tokenArr->size; i++){
         curr_stmt->next = generateStatement(items, i);
         if(curr_stmt->next == NULL) {
+            ASTFree(program);
+            tokenizeFree(tokenArr);
             return NULL;
         }
         curr_stmt = curr_stmt->next;
@@ -137,7 +145,6 @@ Statement* generateAST(char* input){
 
 void ASTFree(Statement* stmt) {
     Statement* prev;
-    stmt = stmt->next;
     while(stmt != NULL) {
         prev = stmt;
         stmt = stmt->next;
@@ -198,29 +205,38 @@ ExpressionResult* parseExpression(Statement** stmt, bool is_sub_expr) {
     result->type = -1;
     ExpressionStatement add_sub_result = { .type=-1  };
 
+    Statement* temp = *stmt;
+
     BinOps curr_operator = -1;
     BinOps prev_operator = -1;
     int itr_count = 0, prev_op_count = -2;
 
-    while((*stmt)->type != END && (!is_sub_expr || (is_sub_expr && (*stmt)->type != RPARAMCL))) {
+    while(*stmt != NULL && (*stmt)->type != END && (!is_sub_expr || (is_sub_expr && (*stmt)->type != RPARAMCL))) {
         NodeType curr_type = (*stmt)->type;
         void* curr_value = (*stmt)->value;
+        bool iterate_next = true;
         switch(curr_type){
             case RPARAMOP:
-                ExpressionResult* sub_expr_result = parseExpression(&((*stmt)->next), true);
+                *stmt = (*stmt)->next;
+                ExpressionResult* sub_expr_result = parseExpression(stmt, true);
                 if(sub_expr_result == NULL) {
+                    free(result);
                     return NULL;
                 }
 
-                Statement* next_stmt = (*stmt)->next;
-                next_stmt->type = sub_expr_result->type == NUM_FLOAT ? FLOAT : INTEGER;
                 if(sub_expr_result->type == NUM_FLOAT){
-                    next_stmt->type = FLOAT;
-                    *(float*)next_stmt->value = sub_expr_result->value.f;
+                    (*stmt)->type = FLOAT;
+                    free((*stmt)->value);
+                    (*stmt)->value = malloc(sizeof(float));
+                    *(float*)(*stmt)->value = sub_expr_result->value.f;
                 } else {
-                    next_stmt->type = INTEGER;
-                    *(int*)next_stmt->value = sub_expr_result->value.i;
+                    (*stmt)->type = INTEGER;
+                    free((*stmt)->value);
+                    (*stmt)->value = malloc(sizeof(int));
+                    *(int*)(*stmt)->value = sub_expr_result->value.i;
                 }
+                iterate_next = false;
+                free(sub_expr_result);
                 break;
             case INTEGER:
             case FLOAT:
@@ -231,6 +247,7 @@ ExpressionResult* parseExpression(Statement** stmt, bool is_sub_expr) {
                         } else {
                             printf("Unexpected number %f\n", *(float*)curr_value);
                         }
+                        free(result);
                         return NULL;
                     }
 
@@ -249,6 +266,7 @@ ExpressionResult* parseExpression(Statement** stmt, bool is_sub_expr) {
                 BinOps op = *(BinOps*)curr_value;
                 if(prev_op_count == itr_count-1) {
                     printf("Unexpected literal %c\n", getOperatorChar(op));
+                    free(result);
                     return NULL;
                 }
                 prev_op_count = itr_count;
@@ -261,6 +279,7 @@ ExpressionResult* parseExpression(Statement** stmt, bool is_sub_expr) {
                         result->value.i = 0;
                     } else {
                         printf("Unexpected literal %c\n", getOperatorChar(op));
+                        free(result);
                         return NULL;
                     }
                 }
@@ -295,14 +314,18 @@ ExpressionResult* parseExpression(Statement** stmt, bool is_sub_expr) {
                 break;
             default:
                 printf("Unexpected literal %c\n", *(char*)curr_value);
+                free(result);
                 return NULL;
         }
-        *stmt = (*stmt)->next;
+        if(iterate_next == true) {
+            *stmt = (*stmt)->next;
+        }
         itr_count++;
     }
 
     if(is_sub_expr && (*stmt)->type != RPARAMCL) {
         printf("Missing )\n");
+        free(result);
         return NULL;
     }
 
@@ -389,6 +412,8 @@ void parse(Statement* program){
                 }
                 return;
         }
-        stmt = stmt->next;
+        if(stmt != NULL){
+            stmt = stmt->next;
+        }
     }
 }
